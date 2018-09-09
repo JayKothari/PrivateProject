@@ -57,7 +57,7 @@ struct StoreStruct
 const unsigned int NET_PORT = 58266;
 WiFiUDP Udp;
 char NetMsg_Something[] = "ESP8266";
-
+int broadCastCount=0;
 //#########################
 
 //Global Functions
@@ -67,6 +67,8 @@ static String macToStr(const uint8_t* mac);
 static void loadConfig(void);
 static void saveConfig(void);
 static void AP_Setup(void);
+static void AP_Loop(void);
+static void BroadcastPresence(void);
 //#########################
 
 //**************************
@@ -138,16 +140,18 @@ static void AP_Setup(void)
   server.begin();
 }
 
-void AP_Loop(void){
-
+static void AP_Loop(void)
+{
   bool  inf_loop = true;
   int  val = 0;
   WiFiClient client;
 
   Serial.println("AP loop");
 
-  while(inf_loop){
-    while (!client){
+  while(inf_loop)
+  {
+    while (!client)
+    {
       Serial.print(".");
       delay(100);
       client = server.available();
@@ -164,7 +168,8 @@ void AP_Loop(void){
     s += "Content-Type: text/html\r\n\r\n";
     s += "<!DOCTYPE HTML>\r\n<html>\r\n";
 
-    if (req.indexOf("&") != -1){
+    if (req.indexOf("&") != -1)
+    {
       int ptr1 = req.indexOf("ssid=", 0);
       int ptr2 = req.indexOf("&", ptr1);
       int ptr3 = req.indexOf(" HTTP/",ptr2);
@@ -173,7 +178,8 @@ void AP_Loop(void){
       val = -1;
     }
 
-    if (val == -1){
+    if (val == -1)
+    {
       strcpy(storage.ssid, ssid.c_str());
       strcpy(storage.pwd, passwd.c_str());
       
@@ -206,7 +212,8 @@ void AP_Loop(void){
   }
 }
 
-void BroadcastPresence(){
+static void BroadcastPresence(void)
+{
   // Calculate this network broadcast address
   IPAddress broadcastIP = ~WiFi.subnetMask() | WiFi.gatewayIP();
   // A broadcast packet goes to every host on the subnet.
@@ -282,19 +289,15 @@ void setup(void)
 
   // Set output topic
   char* out_topic = rest.get_topic();
-
 }
 
-int broadCastCount=0;
-
-void loop() {
-  
-  //Serial.println("WiFi LOOP...");
+void loop()
+{  
   // Connect to the cloud
   rest.loop(client);
 
   broadCastCount++;
-  if(broadCastCount == 10000)
+  if(broadCastCount == 100000)
   {
     broadCastCount=0;
     BroadcastPresence();
@@ -302,55 +305,60 @@ void loop() {
 
    // Check if a client has connected
   WiFiClient client = server.available();
-  if (client) {
-
-     // Wait until the client sends some data
-  Serial.println("new client");
-  while(!client.available()){
+  if (client) 
+  {
+    // Wait until the client sends some data
+    Serial.println("new client");
+    while(!client.available())
+    {
+      delay(1);
+    }
+  
+    // Read the first line of the request
+    String req = client.readStringUntil('\r');
+    Serial.println(req);
+    client.flush();
+  
+    // Match the request
+    int val;
+    if (req.indexOf("/gpio/0") != -1)
+    {
+      val = 0;
+    }
+    else if (req.indexOf("/gpio/1") != -1)
+    {
+      val = 1;
+    }
+    else 
+    {
+      Serial.println("invalid request");
+      client.stop();
+      return;
+    }
+ 
+    // Set GPIO2 according to the request
+    digitalWrite(2, val);
+  
+    client.flush();
+ 
+    // Prepare the response
+    String s = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<!DOCTYPE HTML>\r\n<html>\r\nGPIO is now ";
+    s += (val)?"high":"low";
+    s += "</html>\n";
+ 
+    // Send the response to the client
+    client.print(s);
     delay(1);
-  }
-  
-  // Read the first line of the request
-  String req = client.readStringUntil('\r');
-  Serial.println(req);
-  client.flush();
-  
-  // Match the request
-  int val;
-  if (req.indexOf("/gpio/0") != -1)
-    val = 0;
-  else if (req.indexOf("/gpio/1") != -1)
-    val = 1;
-  else {
-    Serial.println("invalid request");
-    client.stop();
-    return;
-  }
+    Serial.println("Client disonnected");
  
-  // Set GPIO2 according to the request
-  digitalWrite(2, val);
-  
-  client.flush();
- 
-  // Prepare the response
-  String s = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<!DOCTYPE HTML>\r\n<html>\r\nGPIO is now ";
-  s += (val)?"high":"low";
-  s += "</html>\n";
- 
-  // Send the response to the client
-  client.print(s);
-  delay(1);
-  Serial.println("Client disonnected");
- 
-  // The client will actually be disconnected 
-  // when the function returns and 'client' object is detroyed
+    // The client will actually be disconnected 
+    // when the function returns and 'client' object is detroyed
     //return;
   }
 }
 
 // Handles message arrived on subscribed topic(s)
-void callback(char* topic, byte* payload, unsigned int length) {
-
+void callback(char* topic, byte* payload, unsigned int length) 
+{
   rest.handle_callback(client, topic, payload, length);
-
 }
