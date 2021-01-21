@@ -69,6 +69,7 @@ static void saveConfig(void);
 static void AP_Setup(void);
 static void AP_Loop(void);
 static void BroadcastPresence(void);
+static void setupGpioMode(void);
 //#########################
 
 //**************************
@@ -90,6 +91,12 @@ static String macToStr(const uint8_t* mac)
   }
   
   return result;
+}
+
+static void setupGpioMode(void)
+{
+   pinMode(2, OUTPUT);
+   pinMode(16, OUTPUT);
 }
 
 //**************************
@@ -300,6 +307,7 @@ void setup(void)
   
   Serial.println(WiFi.localIP());
 
+    setupGpioMode();
   // Set output topic
 //  char* out_topic = rest.get_topic();
  // char* out_topic = rest.get_topic();
@@ -347,17 +355,25 @@ void loop()
       // Set GPIO2 according to the request
       digitalWrite(2, val);
     }
+    else if (req.indexOf("/digital/2/state") != -1)
+    {
+      val = digitalRead(2);
+    }
     else if (req.indexOf("/digital/16/0") != -1)
     {
       val = 0;
       // Set GPIO16 according to the request
-      digitalWrite(2, val);
+      digitalWrite(16, val);
     }
     else if (req.indexOf("/digital/16/1") != -1)
     {
       val = 1;
       // Set GPIO16 according to the request
-      digitalWrite(2, val);
+      digitalWrite(16, val);
+    }
+    else if (req.indexOf("/digital/16/state") != -1)
+    {
+      val = digitalRead(16);
     }
     else 
     {
@@ -369,8 +385,8 @@ void loop()
     client.flush();
  
     // Prepare the response
-    String s = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<!DOCTYPE HTML>\r\n<html>\r\nGPIO is now ";
-    s += (val)?"high":"low";
+    String s = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<!DOCTYPE HTML>\r\n<html>\r\nSwitch is now ";
+    s += (val)?"ON":"OFF";
     s += "</html>\n";
  
     // Send the response to the client
