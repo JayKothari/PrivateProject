@@ -38,12 +38,12 @@ char* device_id = "jay412";
 
 struct StoreStruct 
 {
-	// This is for mere detection if they are your settings
-	char version[4];
-	// The variables of your settings
-	uint moduleId;  // module id
-	bool state;     // state
-	char ssid[20];
+  // This is for mere detection if they are your settings
+  char version[4];
+  // The variables of your settings
+  uint moduleId;  // module id
+  bool state;     // state
+  char ssid[20];
   char pwd[20];
 } storage = {
   CONFIG_VERSION,
@@ -239,7 +239,7 @@ void setup(void)
 
   EEPROM.begin(512);
   
-  //loadConfig();
+  loadConfig();
 
   // Set callback
   client.setCallback(callback);
@@ -264,7 +264,8 @@ void setup(void)
   WiFi.mode(WIFI_STA);
 
   Serial.println("************ Jay Kothari ***************");
-  Serial.println(storage.ssid);
+  //Serial.println(storage.ssid);
+  //Serial.println(storage.pwd);
   WiFi.begin(storage.ssid, storage.pwd);
 
   Serial.print("Connecting ... ");
