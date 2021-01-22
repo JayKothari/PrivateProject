@@ -7,8 +7,6 @@
 //***********************************
 // Import required libraries
 #include <ESP8266WiFi.h>
-#include <PubSubClient.h>
-#include <aREST.h>
 #include "WiFiUdp.h"
 #include <EEPROM.h>
 
@@ -23,18 +21,10 @@
 
 //Global Variables
 //##################################
-WiFiClient espClient;
-PubSubClient client(espClient);
-
-// Create aREST instance
-aREST rest = aREST(client);
 
 // Create an instance of the server
 // specify the port to listen on as an argument
 WiFiServer server(80);
-
-// Unique ID to identify the device for cloud.arest.io
-char* device_id = "jay412";
 
 struct StoreStruct 
 {
@@ -62,7 +52,6 @@ int broadCastCount=0;
 
 //Global Functions
 //#########################
-void callback(char* topic, byte* payload, unsigned int length);
 static String macToStr(const uint8_t* mac);
 static void loadConfig(void);
 static void saveConfig(void);
@@ -240,7 +229,7 @@ static void AP_Loop(void)
 
 //**************************
 //Function:BroadcastPresence:- Broadcast the and tell everyone 
-                               about the presence.
+//                               about the presence.
 //Argument: void
 //return: void
 //**************************
@@ -249,12 +238,10 @@ static void BroadcastPresence(void)
   // Calculate this network broadcast address
   IPAddress broadcastIP = WiFi.localIP();
   broadcastIP[3] = 255;
-//  IPAddress broadcastIP = subnetMask | gatewayIP;
-  
-  //IPAddress broadcastIP = WiFi.subnetMask() | WiFi.gatewayIP();
+
   // A broadcast packet goes to every host on the subnet.
   // It is a NORMAL packet but sent to a specific address.
- // Serial.print(broadcastIP);
+  // Serial.print(broadcastIP);
   Udp.beginPacket(broadcastIP, NET_PORT);
   Udp.write(NetMsg_Something);
   Udp.endPacket();
@@ -277,13 +264,6 @@ void setup(void)
   EEPROM.begin(512);
   
   loadConfig();
-
-  // Set callback
-  client.setCallback(callback);
-  
-  // Give name and ID to device
-  rest.set_id(device_id);
-  rest.set_name("relay_anywhere");
 
   Serial.print("Scan start ... ");
   int n = WiFi.scanNetworks();
@@ -337,9 +317,7 @@ void setup(void)
   
   Serial.println(WiFi.localIP());
 
-    setupGpioMode();
-  // Set output topic
-//  char* out_topic = rest.get_topic();
+  setupGpioMode();
 }
 
 //**************************
@@ -349,9 +327,6 @@ void setup(void)
 //**************************
 void loop()
 {  
-  // Connect to the cloud
-  rest.loop(client);
-
   broadCastCount++;
   if ( broadCastCount == 500000)
   {
@@ -433,10 +408,4 @@ void loop()
     // when the function returns and 'client' object is detroyed
     //return;
   }
-}
-
-// Handles message arrived on subscribed topic(s)
-void callback(char* topic, byte* payload, unsigned int length) 
-{
-  rest.handle_callback(client, topic, payload, length);
 }
