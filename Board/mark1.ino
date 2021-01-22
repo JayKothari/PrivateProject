@@ -93,6 +93,11 @@ static String macToStr(const uint8_t* mac)
   return result;
 }
 
+//**************************
+//Function:setupGpioMode
+//Argument: void
+//return: void
+//**************************
 static void setupGpioMode(void)
 {
    pinMode(2, OUTPUT);
@@ -100,9 +105,9 @@ static void setupGpioMode(void)
 }
 
 //**************************
-//Function:loadConfig
-//Argument: in-Mac address
-//return: String
+//Function:loadConfig:- Read config.
+//Argument: void
+//return: void
 //**************************
 static void loadConfig(void) 
 {
@@ -119,7 +124,11 @@ static void loadConfig(void)
   }
 }
 
-
+//**************************
+//Function:saveConfig:- write to eeprom.
+//Argument: void
+//return: void
+//**************************
 static void saveConfig(void) 
 {
   for (unsigned int t=0; t<sizeof(storage); t++)
@@ -130,6 +139,11 @@ static void saveConfig(void)
   EEPROM.commit();
 }
 
+//**************************
+//Function:AP_Setup: access point setup.
+//Argument: void
+//return: void
+//**************************
 static void AP_Setup(void)
 {
   Serial.println("setting mode");
@@ -147,6 +161,11 @@ static void AP_Setup(void)
   server.begin();
 }
 
+//**************************
+//Function:AP_Loop:- access point loop 
+//Argument: void
+//return: void
+//**************************
 static void AP_Loop(void)
 {
   bool  inf_loop = true;
@@ -219,6 +238,12 @@ static void AP_Loop(void)
   }
 }
 
+//**************************
+//Function:BroadcastPresence:- Broadcast the and tell everyone 
+                               about the presence.
+//Argument: void
+//return: void
+//**************************
 static void BroadcastPresence(void)
 {
   // Calculate this network broadcast address
@@ -235,6 +260,11 @@ static void BroadcastPresence(void)
   Udp.endPacket();
 }
 
+//**************************
+//Function:setup : Its called once before the loop function.
+//Argument: void
+//return: void
+//**************************
 void setup(void)
 {
   // Start Serial
@@ -281,7 +311,7 @@ void setup(void)
   //WiFi.begin(ssid, password);
   //IPAddress myip = WiFi.softAP(ssid, password);
   //Serial.println(myip);
-  while (WiFi.status() != WL_CONNECTED 
+  while ((WiFi.status() != WL_CONNECTED) 
           && i++ < (AP_CONNECT_TIME*2))
   {
     delay(500);
@@ -310,36 +340,40 @@ void setup(void)
     setupGpioMode();
   // Set output topic
 //  char* out_topic = rest.get_topic();
- // char* out_topic = rest.get_topic();
 }
 
+//**************************
+//Function:loop : Its the main loop
+//Argument: void
+//return: void
+//**************************
 void loop()
 {  
   // Connect to the cloud
   rest.loop(client);
 
   broadCastCount++;
-  if ( broadCastCount == 100000)
+  if ( broadCastCount == 500000)
   {
     broadCastCount=0;
     BroadcastPresence();
   }
 
    // Check if a client has connected
-  WiFiClient client = server.available();
-  if (client) 
+  WiFiClient clientLocal = server.available();
+  if (clientLocal) 
   {
     // Wait until the client sends some data
     Serial.println("new client");
-    while(!client.available())
+    while(!clientLocal.available())
     {
       delay(1);
     }
   
     // Read the first line of the request
-    String req = client.readStringUntil('\r');
+    String req = clientLocal.readStringUntil('\r');
     Serial.println(req);
-    client.flush();
+    clientLocal.flush();
   
     // Match the request
     int val;
@@ -378,11 +412,11 @@ void loop()
     else 
     {
       Serial.println("invalid request");
-      client.stop();
+      clientLocal.stop();
       return;
     }
   
-    client.flush();
+    clientLocal.flush();
  
     // Prepare the response
     String s = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<!DOCTYPE HTML>\r\n<html>\r\nSwitch is now ";
@@ -390,7 +424,7 @@ void loop()
     s += "</html>\n";
  
     // Send the response to the client
-    client.print(s);
+    clientLocal.print(s);
     delay(1);
     Serial.println("Client disonnected");
 
