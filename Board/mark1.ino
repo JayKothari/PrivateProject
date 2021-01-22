@@ -17,6 +17,7 @@
 #define AP_PASSWORD       "Jmk@1232" 
 #define CONFIG_VERSION    "v01"
 #define AP_CONNECT_TIME   20 //s
+#define MAX_RELAY          4
 //#################################
 
 //Global Variables
@@ -44,10 +45,30 @@ struct StoreStruct
   AP_PASSWORD
 };
 
-const unsigned int NET_PORT = 58266;
+typedef enum
+{
+  LOW_V = 0,
+  HIGH_V,
+}voltage_state_e;
+
+typedef struct gpio
+{
+  int gpio_num;
+  int gpio_mode;
+}gpio_t;
+
+gpio_t relay_config_table[MAX_RELAY]
+{
+  {4,OUTPUT},
+  {5,OUTPUT},
+  {12,OUTPUT},
+  {13,OUTPUT},
+};
+
 WiFiUDP Udp;
-char NetMsg_Something[] = "ESP8266";
-int broadCastCount=0;
+const unsigned int NET_PORT = 58266;
+char NetMsg_Something[]     = "ESP8266";
+int broadCastCount          = 0;
 //#########################
 
 //Global Functions
@@ -89,8 +110,15 @@ static String macToStr(const uint8_t* mac)
 //**************************
 static void setupGpioMode(void)
 {
-   pinMode(2, OUTPUT);
-   pinMode(16, OUTPUT);
+   char i;
+   for (i=0;i<MAX_RELAY;++i)
+   {
+      pinMode(relay_config_table[i].gpio_num, 
+              relay_config_table[i].gpio_mode);
+
+      digitalWrite(relay_config_table[i].gpio_num,
+                   HIGH_V);
+   }
 }
 
 //**************************
@@ -327,6 +355,9 @@ void setup(void)
 //**************************
 void loop()
 {  
+  int ret = 0;
+  int relay_state_i;
+  int relay_num_i;
   broadCastCount++;
   if ( broadCastCount == 500000)
   {
@@ -349,42 +380,39 @@ void loop()
     String req = clientLocal.readStringUntil('\r');
     Serial.println(req);
     clientLocal.flush();
-  
-    // Match the request
-    int val;
-    if (req.indexOf("/digital/2/0") != -1)
+
+    String dig = "/digital/";
+    if (req.indexOf("/state") == -1)
     {
-      val = 0;
-      // Set GPIO2 according to the request
-      digitalWrite(2, val);
+      int ptr1 = req.indexOf(dig,0);
+      int ptr2 = req.indexOf("/",ptr1 + dig.length());
+      int ptr3 = req.indexOf(" ",ptr2 + 1);
+    
+      String relay_num   = req.substring(ptr1 + dig.length(),ptr2);
+      String relay_state = req.substring(ptr2 + 1,ptr3);
+
+      relay_num_i   = relay_num.toInt();
+      relay_state_i = relay_state.toInt();
+
+      if (relay_num_i < MAX_RELAY)
+      {
+        Serial.println("*********GPIO********");
+        Serial.println(relay_config_table[relay_num_i].gpio_num);
+        Serial.println(relay_state_i);
+        digitalWrite(relay_config_table[relay_num_i].gpio_num,
+                      relay_state_i);
+      }
+      else
+      {
+        ret = -1;
+      }
     }
-    else if (req.indexOf("/digital/2/1") != -1)
+    else
     {
-      val = 1;
-      // Set GPIO2 according to the request
-      digitalWrite(2, val);
+      ret = -1;
     }
-    else if (req.indexOf("/digital/2/state") != -1)
-    {
-      val = digitalRead(2);
-    }
-    else if (req.indexOf("/digital/16/0") != -1)
-    {
-      val = 0;
-      // Set GPIO16 according to the request
-      digitalWrite(16, val);
-    }
-    else if (req.indexOf("/digital/16/1") != -1)
-    {
-      val = 1;
-      // Set GPIO16 according to the request
-      digitalWrite(16, val);
-    }
-    else if (req.indexOf("/digital/16/state") != -1)
-    {
-      val = digitalRead(16);
-    }
-    else 
+
+    if (ret == -1)
     {
       Serial.println("invalid request");
       clientLocal.stop();
@@ -395,17 +423,13 @@ void loop()
  
     // Prepare the response
     String s = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<!DOCTYPE HTML>\r\n<html>\r\nSwitch is now ";
-    s += (val)?"ON":"OFF";
+    s += (relay_state_i)?"ON":"OFF";
     s += "</html>\n";
  
     // Send the response to the client
     clientLocal.print(s);
     delay(1);
     Serial.println("Client disonnected");
-
-    
-    // The client will actually be disconnected 
-    // when the function returns and 'client' object is detroyed
-    //return;
   }
+  return;
 }
